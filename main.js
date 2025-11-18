@@ -1,4 +1,4 @@
-// main.js – v0.3a: create lists + show gifts
+// main.js – single tokenized URL (?id=admin_token) + create form
 
 const VERCEL_BASE = 'https://vlist-kappa.vercel.app';
 
@@ -50,104 +50,103 @@ function getItemCardClass(status) {
   }
 }
 
-async function loadData() {
+async function loadList() {
   const out = document.getElementById('output');
   const params = new URLSearchParams(window.location.search);
-  const filterSlug = params.get('list') || null;
+  const id = params.get('id');
 
-  out.textContent = 'Načítám…';
+  if (!id) {
+    out.innerHTML = 'Zatím žádný list. Vytvoř si nový výše, nebo vlož do adresy parametr <code>?id=…</code>.';
+    return;
+  }
+
+  out.textContent = 'Načítám list…';
 
   const apiBase = getApiBase();
 
   try {
-    const resp = await fetch(`${apiBase}/api/wishlist`);
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-
-    const data = await resp.json();
-    out.innerHTML = '';
-
-    if (!data || data.length === 0) {
-      out.textContent = 'Žádné seznamy nenalezeny.';
+    const resp = await fetch(`${apiBase}/api/list?id=${encodeURIComponent(id)}`);
+    if (!resp.ok) {
+      if (resp.status === 404) {
+        out.textContent = 'List nenalezen. Zkontroluj odkaz.';
+      } else {
+        throw new Error('HTTP ' + resp.status);
+      }
       return;
     }
 
-    let lists = data;
-    if (filterSlug) {
-      lists = data.filter(row => row.slug === filterSlug);
-      if (lists.length === 0) {
-        out.textContent = 'Seznam nenalezen.';
-        return;
-      }
+    const row = await resp.json();
+    out.innerHTML = '';
+
+    // Header card
+    const header = document.createElement('div');
+    header.className = 'wishlist-card wishlist-card--header';
+
+    const created = row.created_at
+      ? new Date(row.created_at).toLocaleString()
+      : '(neznámý čas)';
+
+    const descHtml = row.description
+      ? `<p class="wishlist-description">${escapeHtml(row.description)}</p>`
+      : '';
+
+    header.innerHTML = `
+      <h2>${escapeHtml(row.title || '(bez názvu)')}</h2>
+      ${descHtml}
+      <div class="wishlist-meta">
+        ID (tajný token): <code>${escapeHtml(row.admin_token)}</code><br>
+        Veřejný: ${row.is_public ? 'ano' : 'ne'}<br>
+        Vytvořeno: ${escapeHtml(created)}
+      </div>
+    `;
+    out.appendChild(header);
+
+    const items = Array.isArray(row.items) ? row.items : [];
+
+    if (items.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'wishlist-card wishlist-item-card wishlist-item-card--default wishlist-empty';
+      empty.textContent = 'Zatím žádné položky.';
+      out.appendChild(empty);
+      return;
     }
 
-    lists.forEach(row => {
-      const header = document.createElement('div');
-      header.className = 'wishlist-card wishlist-card--header';
+    items.forEach(it => {
+      const name = escapeHtml(it.name);
+      const note = it.note ? escapeHtml(it.note) : '';
+      const price = formatPrice(it.price);
+      const link = it.link ? String(it.link) : '';
+      const status = it.status || 'default';
 
-      const created = row.created_at
-        ? new Date(row.created_at).toLocaleString()
-        : '(neznámý čas)';
-
-      const descHtml = row.description
-        ? `<p class="wishlist-description">${escapeHtml(row.description)}</p>`
+      const linkHtml = link
+        ? `<a class="wishlist-item-link" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">
+             ${escapeHtml(shortenUrl(link))} ↗
+           </a>`
         : '';
 
-      header.innerHTML = `
-        <h2>${escapeHtml(row.title || '(bez názvu)')}</h2>
-        ${descHtml}
-        <div class="wishlist-meta">
-          Slug: <code>${escapeHtml(row.slug || '(žádný)')}</code><br>
-          Veřejný: ${row.is_public ? 'ano' : 'ne'}<br>
-          Vytvořeno: ${escapeHtml(created)}
+      const priceHtml = price
+        ? `<span class="wishlist-item-price">${escapeHtml(price)}</span>`
+        : '';
+
+      const noteHtml = note
+        ? `<div class="wishlist-item-note">${note}</div>`
+        : '';
+
+      const itemCard = document.createElement('div');
+      itemCard.className = getItemCardClass(status);
+
+      itemCard.innerHTML = `
+        <div class="wishlist-item-main">
+          <span class="wishlist-item-name">${name}</span>
+          ${priceHtml}
         </div>
+        <div class="wishlist-item-meta">
+          ${linkHtml}
+        </div>
+        ${noteHtml}
       `;
-      out.appendChild(header);
 
-      const items = Array.isArray(row.items) ? row.items : [];
-      if (items.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'wishlist-card wishlist-item-card wishlist-item-card--default wishlist-empty';
-        empty.textContent = 'Zatím žádné položky.';
-        out.appendChild(empty);
-      } else {
-        items.forEach(it => {
-          const name = escapeHtml(it.name);
-          const note = it.note ? escapeHtml(it.note) : '';
-          const price = formatPrice(it.price);
-          const link = it.link ? String(it.link) : '';
-          const status = it.status || 'default';
-
-          const linkHtml = link
-            ? `<a class="wishlist-item-link" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">
-                 ${escapeHtml(shortenUrl(link))} ↗
-               </a>`
-            : '';
-
-          const priceHtml = price
-            ? `<span class="wishlist-item-price">${escapeHtml(price)}</span>`
-            : '';
-
-          const noteHtml = note
-            ? `<div class="wishlist-item-note">${note}</div>`
-            : '';
-
-          const itemCard = document.createElement('div');
-          itemCard.className = getItemCardClass(status);
-
-          itemCard.innerHTML = `
-            <div class="wishlist-item-main">
-              <span class="wishlist-item-name">${name}</span>
-              ${priceHtml}
-            </div>
-            <div class="wishlist-item-meta">
-              ${linkHtml}
-            </div>
-            ${noteHtml}
-          `;
-
-          out.appendChild(itemCard);
-        });
-      }
+      out.appendChild(itemCard);
     });
   } catch (err) {
     console.error(err);
@@ -209,18 +208,15 @@ function setupCreateForm() {
       const basePath = window.location.origin +
         window.location.pathname.replace(/index\.html$/, '');
 
-      const publicUrl = `${basePath}?list=${encodeURIComponent(data.slug)}`;
-      const ownerUrl = `${basePath}?list=${encodeURIComponent(data.slug)}&k=${encodeURIComponent(data.admin_token)}`;
+      const shareUrl = `${basePath}?id=${encodeURIComponent(data.admin_token)}`;
 
       resultBox.innerHTML = `
         <div class="wishlist-card">
           <p><strong>List vytvořen.</strong></p>
-          <p>Veřejný odkaz (pro sdílení):<br>
-            <a href="${publicUrl}" target="_blank" rel="noopener noreferrer">${publicUrl}</a>
+          <p>Odkaz na tvůj višňový list (sdílej s rodinou):<br>
+            <a href="${shareUrl}" target="_blank" rel="noopener noreferrer">${shareUrl}</a>
           </p>
-          <p>Odkaz pro úpravy (nesdílej ho veřejně):<br>
-            <a href="${ownerUrl}" target="_blank" rel="noopener noreferrer">${ownerUrl}</a>
-          </p>
+          <p><strong>PIN pro úpravy:</strong> ten, který jsi právě zadal. Nezapomeň si ho.</p>
         </div>
       `;
 
@@ -228,8 +224,11 @@ function setupCreateForm() {
       form.style.display = 'none';
       btn.style.display = 'inline-block';
 
-      // Refresh lists
-      loadData();
+      // Optional: navigate directly to the new list
+      // window.location.href = shareUrl;
+
+      // Or just reload view (if current URL already has ?id)
+      loadList();
     } catch (err) {
       console.error(err);
       resultBox.textContent = 'Chyba při vytváření: ' + err.message;
@@ -239,5 +238,5 @@ function setupCreateForm() {
 
 document.addEventListener('DOMContentLoaded', () => {
   setupCreateForm();
-  loadData();
+  loadList();
 });

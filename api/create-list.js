@@ -1,27 +1,23 @@
-// api/create-list.js – create new wishlist with PIN
+// api/create-list.js – create new wishlist with PIN, return admin_token
 import { neon } from '@neondatabase/serverless';
 import crypto from 'crypto';
 
 function slugify(input) {
   return String(input)
     .toLowerCase()
-    .normalize('NFD')               // remove accents
-    .replace(/[\u0300-\u036f]/g, '')// strip diacritics
-    .replace(/[^a-z0-9]+/g, '-')    // non-alphanum -> dash
-    .replace(/^-+|-+$/g, '')        // trim dashes
-    || 'list';
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'list';
 }
 
 async function ensureUniqueSlug(sql, baseSlug) {
   let slug = baseSlug;
-  // Try a few times with short random suffix if needed
   for (let i = 0; i < 5; i++) {
     const existing = await sql`
       SELECT 1 FROM wishlist WHERE slug = ${slug} LIMIT 1;
     `;
-    if (existing.length === 0) {
-      return slug;
-    }
+    if (existing.length === 0) return slug;
     const suffix = Math.random().toString(36).slice(2, 6);
     slug = `${baseSlug}-${suffix}`;
   }
@@ -100,7 +96,7 @@ export default async function handler(req, res) {
 
     const row = rows[0];
 
-    // We return admin_token only here, not via the public listing API.
+    // We only return admin_token here. Frontend will build the share URL.
     res.status(200).json({
       id: row.id,
       title: row.title,
