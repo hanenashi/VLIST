@@ -1,4 +1,4 @@
-// api/wishlist.js – with Neon, but loud errors
+// api/wishlist.js – v0.2: wishlists + items from Neon
 import { neon } from '@neondatabase/serverless';
 
 export default async function handler(req, res) {
@@ -23,19 +23,40 @@ export default async function handler(req, res) {
   try {
     const sql = neon(process.env.DATABASE_URL);
 
-    const rows = await sql`
+    // 1) Load wishlists
+    const wishlists = await sql`
       SELECT *
       FROM wishlist
       ORDER BY created_at ASC;
     `;
 
-    res.status(200).json(rows);
+    if (!wishlists || wishlists.length === 0) {
+      res.status(200).json([]);
+      return;
+    }
+
+    // 2) Load all public items
+    const items = await sql`
+      SELECT *
+      FROM wishlist_items
+      WHERE is_public = true
+      ORDER BY created_at ASC;
+    `;
+
+    // 3) Attach items to parent wishlist
+    const withItems = wishlists.map(list => {
+      const listItems = items.filter(it => it.wishlist_id === list.id);
+      return {
+        ...list,
+        items: listItems,
+      };
+    });
+
+    res.status(200).json(withItems);
   } catch (err) {
-    // For now, be noisy so we see the exact failure
     res.status(500).json({
       error: 'db_error',
       message: err.message,
-      // comment stack out later when you go public
       stack: err.stack,
     });
   }
