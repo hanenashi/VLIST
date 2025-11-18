@@ -38,7 +38,7 @@ body {
 }
 
 
-/* ===== WISHLIST CARD ===== */
+/* ===== WISHLIST HEADER CARD ===== */
 
 .wishlist-card {
   background: #fff;
@@ -74,4 +74,91 @@ code {
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.8rem;
+}
+
+
+/* ============================================================
+   ITEM CARDS (EACH GIFT IS ITS OWN CARD)
+   ============================================================ */
+
+.wishlist-item-card {
+  margin-top: 1rem;
+  border-radius: 10px;
+  padding: 1.2rem 1.4rem;
+  border: 1px solid #ccc;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.wishlist-item-card:hover {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  transform: translateY(-2px);
+}
+
+/* COLORS BY STATUS */
+.wishlist-item-card--default {
+  background: #ffffff;
+}
+
+.wishlist-item-card--reserved {
+  background: #dfe7ff; /* light blue */
+}
+
+.wishlist-item-card--bought {
+  background: #d8ffd8; /* light green */
+}
+
+
+/* ===== ITEM CONTENT ===== */
+
+.wishlist-item-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.wishlist-item-name {
+  font-weight: 600;
+}
+
+.wishlist-item-price {
+  font-size: 0.9rem;
+  color: #444;
+  white-space: nowrap;
+}
+
+.wishlist-item-meta {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.wishlist-item-link {
+  color: #2a4bd8;
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(0,0,0,0.25);
+}
+
+.wishlist-item-link:hover {
+  border-bottom-style: solid;
+}
+
+.wishlist-item-note {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: #444;
+  line-height: 1.4;
+}
+
+
+/* ===== EMPTY STATE ===== */
+
+.wishlist-empty {
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+  color: #888;
+  font-style: italic;
 }

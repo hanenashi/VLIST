@@ -1,23 +1,14 @@
-// main.js – v0.2: show items under each wishlist
+// main.js – one card per gift, colored by status
 
-// Your Vercel production URL (canonical backend)
 const VERCEL_BASE = 'https://vlist-kappa.vercel.app';
 
 function getApiBase() {
   const host = window.location.hostname;
-
-  // If we are running on the Vercel domain itself,
-  // use same-origin `/api/...`
   if (host.endsWith('vercel.app')) {
     return '';
   }
-
-  // Everywhere else (GitHub Pages, localhost, file:/// etc.)
-  // call the Vercel backend directly.
   return VERCEL_BASE;
 }
-
-// --- helpers ---
 
 function escapeHtml(str) {
   if (str == null) return '';
@@ -48,6 +39,17 @@ function shortenUrl(urlStr) {
   }
 }
 
+function getItemCardClass(status) {
+  switch ((status || 'default').toLowerCase()) {
+    case 'reserved':
+      return 'wishlist-card wishlist-item-card wishlist-item-card--reserved';
+    case 'bought':
+      return 'wishlist-card wishlist-item-card wishlist-item-card--bought';
+    default:
+      return 'wishlist-card wishlist-item-card wishlist-item-card--default';
+  }
+}
+
 async function loadData() {
   const out = document.getElementById('output');
   out.textContent = 'Načítám…';
@@ -67,79 +69,63 @@ async function loadData() {
     }
 
     data.forEach(row => {
-      const card = document.createElement('div');
-      card.className = 'wishlist-card';
+      // 1) Wishlist header card (one per wishlist)
+      const header = document.createElement('div');
+      header.className = 'wishlist-card wishlist-card--header';
 
       const created = row.created_at
         ? new Date(row.created_at).toLocaleString()
         : '(neznámý čas)';
 
-      const slug = row.slug || '(žádný)';
-      const isPublic = row.is_public ? 'ano' : 'ne';
-
-      // Items (v0.2)
-      const items = Array.isArray(row.items) ? row.items : [];
-
-      let itemsHtml = '';
-      if (items.length > 0) {
-        const lis = items.map(it => {
-          const name = escapeHtml(it.name);
-          const note = it.note ? escapeHtml(it.note) : '';
-          const price = formatPrice(it.price);
-          const link = it.link ? String(it.link) : '';
-
-          const linkHtml = link
-            ? `<a class="wishlist-item-link" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">
-                 ${escapeHtml(shortenUrl(link))} ↗
-               </a>`
-            : '';
-
-          const priceHtml = price
-            ? `<span class="wishlist-item-price">${escapeHtml(price)}</span>`
-            : '';
-
-          const noteHtml = note
-            ? `<div class="wishlist-item-note">${note}</div>`
-            : '';
-
-          return `
-            <li class="wishlist-item">
-              <div class="wishlist-item-main">
-                <span class="wishlist-item-name">${name}</span>
-                ${priceHtml}
-              </div>
-              <div class="wishlist-item-meta">
-                ${linkHtml}
-              </div>
-              ${noteHtml}
-            </li>
-          `;
-        }).join('');
-
-        itemsHtml = `
-          <ul class="wishlist-items">
-            ${lis}
-          </ul>
-        `;
-      } else {
-        itemsHtml = `
-          <div class="wishlist-empty">
-            Zatím žádné položky.
-          </div>
-        `;
-      }
-
-      card.innerHTML = `
+      header.innerHTML = `
         <h2>${escapeHtml(row.title || '(bez názvu)')}</h2>
         <div class="wishlist-meta">
-          Slug: <code>${escapeHtml(slug)}</code><br>
-          Veřejný: ${escapeHtml(isPublic)}<br>
+          Slug: <code>${escapeHtml(row.slug || '(žádný)')}</code><br>
+          Veřejný: ${row.is_public ? 'ano' : 'ne'}<br>
           Vytvořeno: ${escapeHtml(created)}
         </div>
-        ${itemsHtml}
       `;
+      out.appendChild(header);
 
-      out.appendChild(card);
+      // 2) One card per item, colored by status
+      const items = Array.isArray(row.items) ? row.items : [];
+      items.forEach(it => {
+        const name = escapeHtml(it.name);
+        const note = it.note ? escapeHtml(it.note) : '';
+        const price = formatPrice(it.price);
+        const link = it.link ? String(it.link) : '';
+        const status = it.status || 'default';
+
+        const linkHtml = link
+          ? `<a class="wishlist-item-link" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">
+               ${escapeHtml(shortenUrl(link))} ↗
+             </a>`
+          : '';
+
+        const priceHtml = price
+          ? `<span class="wishlist-item-price">${escapeHtml(price)}</span>`
+          : '';
+
+        const noteHtml = note
+          ? `<div class="wishlist-item-note">${note}</div>`
+          : '';
+
+        const itemCard = document.createElement('div');
+        itemCard.className = getItemCardClass(status);
+
+        itemCard.innerHTML = `
+          <div class="wishlist-item-main">
+            <span class="wishlist-item-name">${name}</span>
+            ${priceHtml}
+          </div>
+          <div class="wishlist-item-meta">
+            ${linkHtml}
+          </div>
+          ${noteHtml}
+        `;
+
+        out.appendChild(itemCard);
+      });
     });
   } catch (err) {
     console.error(err);
