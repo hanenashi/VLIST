@@ -1,0 +1,102 @@
+body {
+  margin: 0;
+  padding: 0;
+  background: #f5f5f5;
+  font-family: system-ui, sans-serif;
+}
+
+.page {
+  max-width: 1100px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+}
+
+.subtitle {
+  margin: 0 0 1rem;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.card {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid #ccc;
+  margin-bottom: 1.5rem;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 700px;
+  font-size: 0.85rem;
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 6px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+th {
+  background: #f0f0f0;
+  position: sticky;
+  top: 0;
+}
+
+tr:nth-child(even) td {
+  background: #fafafa;
+}
+
+td.editing {
+  background: #fff7d0 !important;
+}
+
+.status {
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #444;
+}
+
+textarea {
+  width: 100%;
+  min-height: 180px;
+  background: #111;
+  color: #e0e0e0;
+  font-family: monospace;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.action-btn {
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  border-radius: 5px;
+  border: 1px solid #aaa;
+  background: #eee;
+}
+
+.action-btn:hover {
+  background: #ddd;
+}
+
+.action-delete {
+  background: #ffdddd;
+  border-color: #cc6666;
+}
+
+.action-delete:hover {
+  background: #ffbbbb;
+}
+
+select.status-select {
+  padding: 2px 4px;
+  font-size: 0.8rem;
+}

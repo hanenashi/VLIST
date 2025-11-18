@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <title>Visnový list – Debug panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="debug.css">
+</head>
+<body>
+  <main class="page">
+    <h1>Visnový list – Debug panel</h1>
+    <p class="subtitle">
+      Excel-style úprava dat: dvojklik = editace, Enter = potvrzení, Esc = zrušení.
+    </p>
+
+    <div id="status" class="status">Načítám…</div>
+
+    <!-- Wishlist table -->
+    <section class="card">
+      <h2>wishlist</h2>
+      <div id="wishlist-table" class="table-container">Načítám…</div>
+    </section>
+
+    <!-- Items table -->
+    <section class="card">
+      <h2>wishlist_items</h2>
+      <div id="items-table" class="table-container">Načítám…</div>
+    </section>
+
+    <!-- Raw JSON -->
+    <section class="card">
+      <h2>Raw JSON – wishlist</h2>
+      <textarea id="raw-json" readonly></textarea>
+    </section>
+
+    <section class="card">
+      <h2>Raw JSON – wishlist_items (flattened)</h2>
+      <textarea id="raw-items-json" readonly></textarea>
+    </section>
+
+  </main>
+
+  <script src="debug.js"></script>
+</body>
+</html>
