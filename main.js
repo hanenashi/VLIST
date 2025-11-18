@@ -1,41 +1,49 @@
-const SUPABASE_URL = "https://xevksbgxihdvjzgjmadm.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhldmtzYmd4aWhkdmp6Z2ptYWRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1Mjk1NzksImV4cCI6MjA3ODEwNTU3OX0.NqVD3uDNhx7_5J-bBh1CkjIHdpvWrrE_I3VNiJJYtzs";
+// Where the API really lives
+const VERCEL_ORIGIN = 'https://vlist-kappa.vercel.app';
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// If we are running on that origin (i.e. actually on Vercel),
+// we can just call /api/... locally. Otherwise, call the Vercel domain.
+const API_BASE =
+  window.location.origin === VERCEL_ORIGIN ? '' : VERCEL_ORIGIN;
 
 async function loadData() {
   const out = document.getElementById('output');
+  out.textContent = 'Načítám…';
 
-  const { data, error } = await supabaseClient
-    .from('wishlist')
-    .select('*');
+  try {
+    const resp = await fetch(`${API_BASE}/api/wishlist`);
+    if (!resp.ok) {
+      throw new Error('HTTP ' + resp.status);
+    }
 
-  if (error) {
-    out.textContent = "Chyba: " + error.message;
-    console.error(error);
-    return;
+    const data = await resp.json();
+
+    out.innerHTML = '';
+
+    if (!data || data.length === 0) {
+      out.textContent = 'Žádné seznamy nenalezeny.';
+      return;
+    }
+
+    data.forEach(row => {
+      const card = document.createElement('div');
+      card.className = 'wishlist-card';
+
+      card.innerHTML = `
+        <h2>${row.title}</h2>
+        <div class="wishlist-meta">
+          Slug: <code>${row.slug || '(žádný)'}</code><br>
+          Veřejný: ${row.is_public ? 'ano' : 'ne'}<br>
+          Vytvořeno: ${new Date(row.created_at).toLocaleString()}
+        </div>
+      `;
+
+      out.appendChild(card);
+    });
+  } catch (err) {
+    console.error(err);
+    out.textContent = 'Chyba načítání: ' + err.message;
   }
-
-  if (!data || data.length === 0) {
-    out.textContent = "Žádné seznamy nenalezeny.";
-    return;
-  }
-
-  out.innerHTML = "";
-
-  data.forEach(row => {
-    const card = document.createElement('div');
-    card.className = 'wishlist-card';
-    card.innerHTML = `
-      <h2>${row.title}</h2>
-      <div class="wishlist-meta">
-        Slug: <code>${row.slug}</code><br>
-        Veřejný: ${row.is_public ? 'ano' : 'ne'}<br>
-        Vytvořeno: ${new Date(row.created_at).toLocaleString()}
-      </div>
-    `;
-    out.appendChild(card);
-  });
 }
 
 loadData();
