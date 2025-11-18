@@ -9,11 +9,56 @@
 <body>
   <main class="page">
     <header class="page-header">
-      <h1>Wishlist test</h1>
+      <h1>Visnový list</h1>
       <p class="page-subtitle">
-        Malý testovací seznam z Vercel&nbsp;Postgres.
+        Jednoduché višňové (wishlist) seznamy. Sdílej odkaz, upravuj přes PIN.
       </p>
     </header>
+
+    <section class="create-section">
+      <p class="create-tldr">
+        1) Vytvoříš nový list s PINem. 2) Dostaneš veřejný odkaz pro rodinu a
+        tajný odkaz pro úpravy. 3) Přidáš dárky a barvy ukážou, co je volné,
+        zamluvené nebo koupené.
+      </p>
+
+      <button id="show-create" class="btn-primary">
+        Nový višňový list
+      </button>
+
+      <form id="create-form" class="create-form" style="display:none">
+        <div class="form-row">
+          <label>
+            Název listu
+            <input type="text" name="title" required>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label>
+            Popis (volitelné)
+            <textarea name="description" rows="2"></textarea>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label>
+            PIN pro úpravy
+            <input type="text" name="pin" required minlength="4" maxlength="32" autocomplete="off">
+          </label>
+          <p class="form-hint">
+            PIN zná jen ten, kdo smí list měnit. Sdílej ho jen s nejbližšími.
+          </p>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Vytvořit list</button>
+          <button type="button" id="cancel-create" class="btn-secondary">Zrušit</button>
+        </div>
+      </form>
+
+      <div id="create-result" class="create-result"></div>
+    </section>
 
     <section id="output">
       Načítám…

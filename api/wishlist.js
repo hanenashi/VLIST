@@ -1,4 +1,4 @@
-// api/wishlist.js – v0.2: wishlists + items from Neon
+// api/wishlist.js – wishlists + items (no secrets)
 import { neon } from '@neondatabase/serverless';
 
 export default async function handler(req, res) {
@@ -9,6 +9,11 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
+    return;
+  }
+
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'method_not_allowed' });
     return;
   }
 
@@ -23,9 +28,9 @@ export default async function handler(req, res) {
   try {
     const sql = neon(process.env.DATABASE_URL);
 
-    // 1) Load wishlists
+    // Do NOT expose pin_hash or admin_token here.
     const wishlists = await sql`
-      SELECT *
+      SELECT id, title, slug, is_public, created_at, description
       FROM wishlist
       ORDER BY created_at ASC;
     `;
@@ -35,21 +40,16 @@ export default async function handler(req, res) {
       return;
     }
 
-    // 2) Load all public items
     const items = await sql`
-      SELECT *
+      SELECT id, wishlist_id, name, link, note, price, status, is_public, created_at
       FROM wishlist_items
       WHERE is_public = true
       ORDER BY created_at ASC;
     `;
 
-    // 3) Attach items to parent wishlist
     const withItems = wishlists.map(list => {
       const listItems = items.filter(it => it.wishlist_id === list.id);
-      return {
-        ...list,
-        items: listItems,
-      };
+      return { ...list, items: listItems };
     });
 
     res.status(200).json(withItems);

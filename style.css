@@ -66,6 +66,12 @@ body {
   line-height: 1.4;
 }
 
+.wishlist-description {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+  color: #444;
+}
+
 
 /* ===== INLINE CODE ===== */
 
@@ -161,4 +167,91 @@ code {
   font-size: 0.85rem;
   color: #888;
   font-style: italic;
+}
+
+
+/* ===== CREATE SECTION (NEW LIST) ===== */
+
+.create-section {
+  margin-bottom: 2rem;
+}
+
+.create-tldr {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+.btn-primary,
+.btn-secondary {
+  border-radius: 999px;
+  padding: 0.5rem 1.2rem;
+  font-size: 0.95rem;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: #222;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #000;
+}
+
+.btn-secondary {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.btn-secondary:hover {
+  background: #d5d5d5;
+}
+
+.create-form {
+  margin-top: 1rem;
+  padding: 1rem 1.2rem;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.form-row {
+  margin-bottom: 0.8rem;
+}
+
+.create-form label {
+  display: block;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.create-form input[type="text"],
+.create-form textarea {
+  width: 100%;
+  margin-top: 0.2rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.form-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: #777;
+}
+
+.form-actions {
+  margin-top: 0.8rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.create-result {
+  margin-top: 1rem;
 }
