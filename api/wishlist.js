@@ -1,8 +1,7 @@
-import { neon } from '@neondatabase/serverless';
-
-const sql = neon(process.env.DATABASE_URL);
+// api/wishlist.js – PURE DUMMY, NO DB
 
 export default async function handler(req, res) {
+  // CORS so GH Pages / localhost can call it
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -12,12 +11,14 @@ export default async function handler(req, res) {
     return;
   }
 
-  try {
-    const rows = await sql`
-      SELECT * FROM wishlist ORDER BY created_at ASC;
-    `;
-    res.status(200).json(rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  // No DB, just a fixed JSON response
+  res.status(200).json([
+    {
+      id: 'dummy-1',
+      title: 'Dummy wishlist',
+      slug: 'dummy',
+      is_public: true,
+      created_at: new Date().toISOString(),
+    },
+  ]);
 }
