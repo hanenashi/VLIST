@@ -1,20 +1,31 @@
-// Where the API really lives
-const VERCEL_ORIGIN = 'https://vlist-kappa.vercel.app';
+// main.js
 
-// If we are running on that origin (i.e. actually on Vercel),
-// we can just call /api/... locally. Otherwise, call the Vercel domain.
-const API_BASE =
-  window.location.origin === VERCEL_ORIGIN ? '' : VERCEL_ORIGIN;
+// Your Vercel production URL (canonical backend)
+const VERCEL_BASE = 'https://vlist-kappa.vercel.app';
+
+function getApiBase() {
+  const host = window.location.hostname;
+
+  // If we are running on the Vercel domain itself,
+  // use same-origin `/api/...`
+  if (host.endsWith('vercel.app')) {
+    return '';
+  }
+
+  // Everywhere else (GitHub Pages, localhost, file:/// etc.)
+  // call the Vercel backend directly.
+  return VERCEL_BASE;
+}
 
 async function loadData() {
   const out = document.getElementById('output');
   out.textContent = 'Načítám…';
 
+  const apiBase = getApiBase();
+
   try {
-    const resp = await fetch(`${API_BASE}/api/wishlist`);
-    if (!resp.ok) {
-      throw new Error('HTTP ' + resp.status);
-    }
+    const resp = await fetch(`${apiBase}/api/wishlist`);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
 
     const data = await resp.json();
 

@@ -12,4 +12,4 @@ A tiny experimental wishlist app built on:
 
 Frontend auto-detects whether it's running on Vercel, GitHub Pages, or localhost and connects to the correct backend API.
 
-More features coming soon: multiple wishlists, items, reservations, and shared gifting links.
+More features coming soon: multiple wishlists, items, reservations, and shared gifting links..
