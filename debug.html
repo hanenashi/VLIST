@@ -167,165 +167,171 @@
       <h2>Raw JSON z /api/wishlist</h2>
       <textarea id="raw-json" readonly>Načítám…</textarea>
     </section>
+	
+	<section class="raw-json">
+	  <h2>Raw JSON z wishlist_items (flattened)</h2>
+	  <textarea id="raw-items-json" readonly>Načítám…</textarea>
+	</section>
+
+
   </main>
+  
 
-  <script>
-    // Same logic as main.js
-    const VERCEL_BASE = 'https://vlist-kappa.vercel.app';
+<script>
+  const VERCEL_BASE = 'https://vlist-kappa.vercel.app';
 
-    function getApiBase() {
-      const host = window.location.hostname;
-      if (host.endsWith('vercel.app')) {
-        return '';
+  function getApiBase() {
+    const host = window.location.hostname;
+    if (host.endsWith('vercel.app')) return '';
+    return VERCEL_BASE;
+  }
+
+  function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function buildTable(container, rows, explicitColumns) {
+    if (!rows || rows.length === 0) {
+      container.innerHTML = '<em>Žádné záznamy.</em>';
+      return;
+    }
+
+    const columns = explicitColumns && explicitColumns.length
+      ? explicitColumns
+      : Object.keys(rows[0]);
+
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+
+    const trHead = document.createElement('tr');
+    columns.forEach(col => {
+      const th = document.createElement('th');
+      th.textContent = col;
+      trHead.appendChild(th);
+    });
+    thead.appendChild(trHead);
+
+    rows.forEach(row => {
+      const tr = document.createElement('tr');
+      columns.forEach(col => {
+        const td = document.createElement('td');
+        let val = row[col];
+
+        if (val === null || val === undefined) {
+          td.innerHTML = '<span style="color:#aaa">NULL</span>';
+        } else if (col === 'status') {
+          const s = String(val).toLowerCase();
+          let cls = 'status-default';
+          if (s === 'reserved') cls = 'status-reserved';
+          else if (s === 'bought') cls = 'status-bought';
+          td.innerHTML = '<span class="status-chip ' + cls + '">' + escapeHtml(val) + '</span>';
+        } else {
+          td.textContent = String(val);
+        }
+
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    container.innerHTML = '';
+    container.appendChild(table);
+  }
+
+  async function loadDebug() {
+    const statusEl = document.getElementById('status');
+    const wishlistBox = document.getElementById('wishlist-table');
+    const itemsBox = document.getElementById('items-table');
+    const rawBox = document.getElementById('raw-json');
+    const rawItemsBox = document.getElementById('raw-items-json');
+
+    const apiBase = getApiBase();
+    statusEl.textContent = 'Načítám z ' + (apiBase || '(stejného původu)') + '/api/wishlist';
+
+    try {
+      const resp = await fetch(apiBase + '/api/wishlist');
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error('HTTP ' + resp.status + ': ' + txt);
       }
-      return VERCEL_BASE;
-    }
 
-    function escapeHtml(str) {
-      if (str == null) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
+      const data = await resp.json();
+      rawBox.value = JSON.stringify(data, null, 2);
 
-    function buildTable(container, rows, explicitColumns) {
-      if (!rows || rows.length === 0) {
-        container.innerHTML = '<em>Žádné záznamy.</em>';
+      // Flatten wishlist_items
+      const allItems = [];
+      data.forEach(list => {
+        if (Array.isArray(list.items)) {
+          list.items.forEach(it => allItems.push(it));
+        }
+      });
+      rawItemsBox.value = JSON.stringify(allItems, null, 2);
+
+      if (!data || data.length === 0) {
+        wishlistBox.innerHTML = '<em>Žádné wishlisty.</em>';
+        itemsBox.innerHTML = '<em>Žádné položky.</em>';
+        statusEl.textContent = 'Načteno: 0 wishlistů.';
         return;
       }
 
-      const columns = explicitColumns && explicitColumns.length
-        ? explicitColumns
-        : Object.keys(rows[0]);
+      // Wishlist rows
+      const wishlistRows = data.map(row => ({
+        id: row.id,
+        title: row.title,
+        slug: row.slug,
+        is_public: row.is_public,
+        created_at: row.created_at,
+        description: row.description
+      }));
 
-      const table = document.createElement('table');
-      const thead = document.createElement('thead');
-      const tbody = document.createElement('tbody');
+      // Items rows
+      const itemRows = allItems.map(it => ({
+        id: it.id,
+        wishlist_id: it.wishlist_id,
+        name: it.name,
+        price: it.price,
+        status: it.status,
+        is_public: it.is_public,
+        link: it.link,
+        note: it.note,
+        created_at: it.created_at
+      }));
 
-      const trHead = document.createElement('tr');
-      columns.forEach(col => {
-        const th = document.createElement('th');
-        th.textContent = col;
-        trHead.appendChild(th);
-      });
-      thead.appendChild(trHead);
+      buildTable(wishlistBox,
+        wishlistRows,
+        ['id', 'title', 'slug', 'is_public', 'created_at', 'description']
+      );
 
-      rows.forEach(row => {
-        const tr = document.createElement('tr');
-        columns.forEach(col => {
-          const td = document.createElement('td');
-          let val = row[col];
+      buildTable(itemsBox,
+        itemRows,
+        ['id', 'wishlist_id', 'name', 'price', 'status', 'is_public', 'link', 'note', 'created_at']
+      );
 
-          if (val === null || val === undefined) {
-            td.innerHTML = '<span style="color:#aaa">NULL</span>';
-          } else if (col === 'status') {
-            const s = String(val).toLowerCase();
-            let cls = 'status-default';
-            if (s === 'reserved') cls = 'status-reserved';
-            else if (s === 'bought') cls = 'status-bought';
-            td.innerHTML = '<span class="status-chip ' + cls + '">' + escapeHtml(val) + '</span>';
-          } else if (val instanceof Date) {
-            td.textContent = val.toISOString();
-          } else {
-            td.textContent = String(val);
-          }
+      statusEl.textContent =
+        'Načteno: ' +
+        wishlistRows.length + ' wishlistů, ' +
+        itemRows.length + ' položek.';
 
-          tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-      });
-
-      table.appendChild(thead);
-      table.appendChild(tbody);
-      container.innerHTML = '';
-      container.appendChild(table);
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = 'Chyba načítání: ' + err.message;
+      wishlistBox.textContent = 'Chyba.';
+      itemsBox.textContent = 'Chyba.';
+      rawBox.value = 'Chyba: ' + err.message;
+      rawItemsBox.value = 'Chyba: ' + err.message;
     }
+  }
 
-    async function loadDebug() {
-      const statusEl = document.getElementById('status');
-      const wishlistBox = document.getElementById('wishlist-table');
-      const itemsBox = document.getElementById('items-table');
-      const rawBox = document.getElementById('raw-json');
-
-      const apiBase = getApiBase();
-      statusEl.textContent = 'Načítám z ' + (apiBase || '(stejného původu)') + '/api/wishlist';
-
-      try {
-        const resp = await fetch(apiBase + '/api/wishlist');
-        if (!resp.ok) {
-          const txt = await resp.text();
-          throw new Error('HTTP ' + resp.status + ': ' + txt);
-        }
-
-        const data = await resp.json();
-        rawBox.value = JSON.stringify(data, null, 2);
-
-        if (!data || data.length === 0) {
-          wishlistBox.innerHTML = '<em>Žádné wishlisty.</em>';
-          itemsBox.innerHTML = '<em>Žádné položky.</em>';
-          statusEl.textContent = 'Načteno: 0 wishlistů.';
-          return;
-        }
-
-        // Build wishlist rows
-        const wishlistRows = data.map(row => ({
-          id: row.id,
-          title: row.title,
-          slug: row.slug,
-          is_public: row.is_public,
-          created_at: row.created_at,
-          description: row.description
-        }));
-
-        // Flatten items from all lists
-        const itemRows = [];
-        data.forEach(list => {
-          if (Array.isArray(list.items)) {
-            list.items.forEach(it => {
-              itemRows.push({
-                id: it.id,
-                wishlist_id: it.wishlist_id,
-                name: it.name,
-                price: it.price,
-                status: it.status,
-                is_public: it.is_public,
-                link: it.link,
-                note: it.note,
-                created_at: it.created_at
-              });
-            });
-          }
-        });
-
-        buildTable(
-          wishlistBox,
-          wishlistRows,
-          ['id', 'title', 'slug', 'is_public', 'created_at', 'description']
-        );
-
-        buildTable(
-          itemsBox,
-          itemRows,
-          ['id', 'wishlist_id', 'name', 'price', 'status', 'is_public', 'link', 'note', 'created_at']
-        );
-
-        statusEl.textContent =
-          'Načteno: ' +
-          wishlistRows.length + ' wishlistů, ' +
-          itemRows.length + ' položek.';
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = 'Chyba načítání: ' + err.message;
-        wishlistBox.textContent = 'Chyba.';
-        itemsBox.textContent = 'Chyba.';
-        rawBox.value = 'Chyba: ' + err.message;
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', loadDebug);
-  </script>
+  document.addEventListener('DOMContentLoaded', loadDebug);
+</script>
 </body>
 </html>
