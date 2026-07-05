@@ -51,7 +51,7 @@ export default async function handler(req, res) {
     const items = await sql`
       SELECT id, wishlist_id, name, link, note, price, status, is_public, created_at
       FROM wishlist_items
-      WHERE wishlist_id = ${list.id} AND is_public = true
+      WHERE wishlist_id = ${list.id}
       ORDER BY created_at ASC;
     `;
 

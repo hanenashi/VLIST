@@ -1,6 +1,16 @@
-// api/create-item.js - add an item to a wishlist after PIN verification
+// api/update-owner-item.js - update one wishlist item after owner PIN verification
 import { neon } from '@neondatabase/serverless';
 import { parsePrice, readJsonBody, verifyOwnerPin } from './_owner.js';
+
+function toBool(val) {
+  if (typeof val === 'boolean') return val;
+  if (typeof val === 'string') {
+    const v = val.toLowerCase().trim();
+    if (v === 'true' || v === '1' || v === 'ano') return true;
+    if (v === 'false' || v === '0' || v === 'ne') return false;
+  }
+  return null;
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -30,29 +40,33 @@ export default async function handler(req, res) {
     return;
   }
 
-  const token = (body.token || body.id || '').toString().trim();
+  const token = (body.token || '').toString().trim();
   const pin = (body.pin || '').toString().trim();
+  const id = body.id;
   const name = (body.name || '').toString().trim();
   const link = (body.link || '').toString().trim();
   const note = (body.note || '').toString().trim();
+  const status = (body.status || 'default').toString().toLowerCase().trim();
+  const isPublic = toBool(body.is_public);
   const price = parsePrice(body.price);
 
-  if (!token || !pin || !name) {
-    res.status(400).json({
-      error: 'missing_fields',
-      message: 'token, pin, and name are required',
-    });
+  if (!token || !pin || !id || !name || isPublic === null) {
+    res.status(400).json({ error: 'missing_fields' });
     return;
   }
 
   if (price === undefined) {
-    res.status(400).json({ error: 'invalid_price', message: 'price must be number or empty' });
+    res.status(400).json({ error: 'invalid_price' });
+    return;
+  }
+
+  if (!['default', 'reserved', 'bought'].includes(status)) {
+    res.status(400).json({ error: 'invalid_status' });
     return;
   }
 
   try {
     const sql = neon(process.env.DATABASE_URL);
-
     const verified = await verifyOwnerPin(sql, token, pin);
     if (!verified.ok) {
       res.status(verified.status).json({ error: verified.error });
@@ -60,17 +74,20 @@ export default async function handler(req, res) {
     }
 
     const rows = await sql`
-      INSERT INTO wishlist_items (wishlist_id, name, link, note, price, status, is_public)
-      VALUES (${verified.list.id}, ${name}, ${link || null}, ${note || null}, ${price}, 'default', true)
+      UPDATE wishlist_items
+      SET name = ${name}, link = ${link || null}, note = ${note || null},
+          price = ${price}, status = ${status}, is_public = ${isPublic}
+      WHERE id = ${id} AND wishlist_id = ${verified.list.id}
       RETURNING id, wishlist_id, name, link, note, price, status, is_public, created_at;
     `;
 
+    if (!rows || rows.length === 0) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+
     res.status(200).json(rows[0]);
   } catch (err) {
-    res.status(500).json({
-      error: 'db_error',
-      message: err.message,
-      stack: err.stack,
-    });
+    res.status(500).json({ error: 'db_error', message: err.message });
   }
 }

@@ -246,7 +246,8 @@ code {
 }
 
 .create-form,
-.add-item-card {
+.add-item-card,
+.owner-panel {
   margin-top: 1rem;
   padding: 1rem 1.2rem;
   background: #fff;
@@ -260,7 +261,10 @@ code {
 }
 
 .create-form label,
-.add-item-form label {
+.add-item-form label,
+.owner-list-form label,
+.owner-item-form label,
+.owner-unlock-form label {
   display: block;
   font-size: 0.9rem;
   color: #333;
@@ -269,7 +273,13 @@ code {
 .create-form input[type="text"],
 .create-form textarea,
 .add-item-form input,
-.add-item-form textarea {
+.add-item-form textarea,
+.owner-list-form input,
+.owner-list-form textarea,
+.owner-item-form input,
+.owner-item-form textarea,
+.owner-item-form select,
+.owner-unlock-form input {
   width: 100%;
   margin-top: 0.2rem;
   padding: 0.4rem 0.5rem;
@@ -292,6 +302,59 @@ code {
 }
 
 .add-item-status {
+  align-self: center;
+  color: #555;
+  font-size: 0.85rem;
+}
+
+.owner-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.owner-panel-header h3 {
+  margin: 0;
+}
+
+.owner-unlock-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: end;
+}
+
+.owner-checkbox {
+  display: flex !important;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.owner-checkbox input {
+  width: auto !important;
+  margin: 0 !important;
+}
+
+.owner-item-details {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(0,0,0,0.12);
+}
+
+.owner-item-details summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.owner-item-form {
+  margin-top: 0.8rem;
+}
+
+.owner-status {
   align-self: center;
   color: #555;
   font-size: 0.85rem;
@@ -352,6 +415,13 @@ code {
 
   .item-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .owner-unlock-row,
+  .owner-panel-header {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .form-actions {

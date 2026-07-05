@@ -1,6 +1,6 @@
-// api/create-item.js - add an item to a wishlist after PIN verification
+// api/verify-owner-pin.js - validate owner PIN for session unlock
 import { neon } from '@neondatabase/serverless';
-import { parsePrice, readJsonBody, verifyOwnerPin } from './_owner.js';
+import { readJsonBody, verifyOwnerPin } from './_owner.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -32,45 +32,22 @@ export default async function handler(req, res) {
 
   const token = (body.token || body.id || '').toString().trim();
   const pin = (body.pin || '').toString().trim();
-  const name = (body.name || '').toString().trim();
-  const link = (body.link || '').toString().trim();
-  const note = (body.note || '').toString().trim();
-  const price = parsePrice(body.price);
 
-  if (!token || !pin || !name) {
-    res.status(400).json({
-      error: 'missing_fields',
-      message: 'token, pin, and name are required',
-    });
-    return;
-  }
-
-  if (price === undefined) {
-    res.status(400).json({ error: 'invalid_price', message: 'price must be number or empty' });
+  if (!token || !pin) {
+    res.status(400).json({ error: 'missing_fields', message: 'token and pin are required' });
     return;
   }
 
   try {
     const sql = neon(process.env.DATABASE_URL);
-
     const verified = await verifyOwnerPin(sql, token, pin);
     if (!verified.ok) {
       res.status(verified.status).json({ error: verified.error });
       return;
     }
 
-    const rows = await sql`
-      INSERT INTO wishlist_items (wishlist_id, name, link, note, price, status, is_public)
-      VALUES (${verified.list.id}, ${name}, ${link || null}, ${note || null}, ${price}, 'default', true)
-      RETURNING id, wishlist_id, name, link, note, price, status, is_public, created_at;
-    `;
-
-    res.status(200).json(rows[0]);
+    res.status(200).json({ ok: true });
   } catch (err) {
-    res.status(500).json({
-      error: 'db_error',
-      message: err.message,
-      stack: err.stack,
-    });
+    res.status(500).json({ error: 'db_error', message: err.message });
   }
 }

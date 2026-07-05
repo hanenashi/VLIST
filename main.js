@@ -125,7 +125,156 @@ function getItemCardClass(status) {
   }
 }
 
+function getOwnerStorageKey(token) {
+  return `vlist_owner_pin_${token}`;
+}
+
+function getOwnerPin(token) {
+  return sessionStorage.getItem(getOwnerStorageKey(token)) || '';
+}
+
+function setOwnerPin(token, pin) {
+  sessionStorage.setItem(getOwnerStorageKey(token), pin);
+}
+
+function clearOwnerPin(token) {
+  sessionStorage.removeItem(getOwnerStorageKey(token));
+}
+
+function handleOwnerError(err, token) {
+  if (err.status === 403) {
+    clearOwnerPin(token);
+    return 'Špatný PIN. Zkus odemknout znovu.';
+  }
+  return err.message;
+}
+
+async function parseErrorResponse(resp) {
+  const text = await resp.text();
+  let message = text;
+  try {
+    const data = JSON.parse(text);
+    message = data.message || data.error || text;
+  } catch {
+    // Keep plain response text.
+  }
+  const err = new Error(message || ('HTTP ' + resp.status));
+  err.status = resp.status;
+  throw err;
+}
+
+function createOwnerPanel(row) {
+  const token = row.admin_token;
+  const pin = getOwnerPin(token);
+  const card = document.createElement('div');
+  card.className = 'wishlist-card owner-panel';
+
+  if (!pin) {
+    card.innerHTML = `
+      <h3>Owner režim</h3>
+      <form class="owner-unlock-form">
+        <div class="owner-unlock-row">
+          <label>
+            PIN pro úpravy
+            <input type="password" name="pin" required autocomplete="off">
+          </label>
+          <button type="submit" class="btn-primary">Odemknout</button>
+        </div>
+        <p class="owner-status form-hint" aria-live="polite"></p>
+      </form>
+    `;
+
+    const form = card.querySelector('.owner-unlock-form');
+    const status = card.querySelector('.owner-status');
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const enteredPin = (new FormData(form).get('pin') || '').toString().trim();
+      if (!enteredPin) return;
+
+      status.textContent = 'Ověřuji PIN…';
+      try {
+        const resp = await fetch(`${getApiBase()}/api/verify-owner-pin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, pin: enteredPin }),
+        });
+        if (!resp.ok) await parseErrorResponse(resp);
+        setOwnerPin(token, enteredPin);
+        loadList();
+      } catch (err) {
+        console.error(err);
+        status.textContent = err.status === 403 ? 'Špatný PIN.' : 'Chyba: ' + err.message;
+      }
+    });
+
+    return card;
+  }
+
+  card.innerHTML = `
+    <div class="owner-panel-header">
+      <h3>Owner režim</h3>
+      <button type="button" class="btn-secondary owner-lock">Zamknout</button>
+    </div>
+    <form class="owner-list-form">
+      <div class="item-form-grid">
+        <label class="item-form-link">
+          Název listu
+          <input type="text" name="title" value="${escapeHtml(row.title || '')}" required>
+        </label>
+        <label class="item-form-note">
+          Popis
+          <textarea name="description" rows="2">${escapeHtml(row.description || '')}</textarea>
+        </label>
+        <label class="owner-checkbox">
+          <input type="checkbox" name="is_public" ${row.is_public ? 'checked' : ''}>
+          Veřejný list
+        </label>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Uložit list</button>
+        <span class="owner-status" aria-live="polite"></span>
+      </div>
+    </form>
+  `;
+
+  card.querySelector('.owner-lock').addEventListener('click', () => {
+    clearOwnerPin(token);
+    loadList();
+  });
+
+  const form = card.querySelector('.owner-list-form');
+  const status = card.querySelector('.owner-status');
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    status.textContent = 'Ukládám list…';
+
+    try {
+      const resp = await fetch(`${getApiBase()}/api/update-list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          pin,
+          title: (formData.get('title') || '').toString().trim(),
+          description: (formData.get('description') || '').toString().trim(),
+          is_public: formData.has('is_public'),
+        }),
+      });
+      if (!resp.ok) await parseErrorResponse(resp);
+      status.textContent = 'List uložen.';
+      loadList();
+    } catch (err) {
+      console.error(err);
+      status.textContent = 'Chyba: ' + handleOwnerError(err, token);
+    }
+  });
+
+  return card;
+}
+
 function createAddItemForm(token) {
+  const pin = getOwnerPin(token);
   const card = document.createElement('div');
   card.className = 'wishlist-card add-item-card';
   card.innerHTML = `
@@ -143,10 +292,6 @@ function createAddItemForm(token) {
         <label class="item-form-link">
           Odkaz
           <input type="url" name="link" placeholder="https://…">
-        </label>
-        <label>
-          PIN
-          <input type="password" name="pin" required autocomplete="off">
         </label>
         <label class="item-form-note">
           Poznámka
@@ -172,10 +317,9 @@ function createAddItemForm(token) {
     const price = (formData.get('price') || '').toString().trim();
     const link = (formData.get('link') || '').toString().trim();
     const note = (formData.get('note') || '').toString().trim();
-    const pin = (formData.get('pin') || '').toString().trim();
 
-    if (!name || !pin) {
-      status.textContent = 'Vyplň název a PIN.';
+    if (!name) {
+      status.textContent = 'Vyplň název.';
       return;
     }
 
@@ -190,10 +334,9 @@ function createAddItemForm(token) {
 
       if (!resp.ok) {
         const errText = await resp.text();
-        if (resp.status === 403) {
-          throw new Error('špatný PIN');
-        }
-        throw new Error('HTTP ' + resp.status + ': ' + errText);
+        const err = new Error(resp.status === 403 ? 'špatný PIN' : errText);
+        err.status = resp.status;
+        throw err;
       }
 
       form.reset();
@@ -201,14 +344,14 @@ function createAddItemForm(token) {
       loadList();
     } catch (err) {
       console.error(err);
-      status.textContent = 'Chyba: ' + err.message;
+      status.textContent = 'Chyba: ' + handleOwnerError(err, token);
     }
   });
 
   return card;
 }
 
-function renderItems(out, items) {
+function renderItems(out, items, ownerContext = null) {
   if (items.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'wishlist-card wishlist-item-card wishlist-item-card--default wishlist-empty';
@@ -223,6 +366,7 @@ function renderItems(out, items) {
     const price = formatPrice(it.price);
     const link = it.link ? String(it.link) : '';
     const status = it.status || 'default';
+    const isPublic = it.is_public !== false;
 
     const linkHtml = link
       ? `<a class="wishlist-item-link" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">
@@ -251,6 +395,103 @@ function renderItems(out, items) {
       </div>
       ${noteHtml}
     `;
+
+    if (ownerContext?.unlocked) {
+      const details = document.createElement('details');
+      details.className = 'owner-item-details';
+      details.innerHTML = `
+        <summary>Upravit</summary>
+        <form class="owner-item-form">
+          <div class="item-form-grid">
+            <label class="item-form-name">
+              Název
+              <input type="text" name="name" value="${escapeHtml(it.name || '')}" required>
+            </label>
+            <label>
+              Cena
+              <input type="text" name="price" inputmode="decimal" value="${escapeHtml(it.price ?? '')}">
+            </label>
+            <label>
+              Stav
+              <select name="status">
+                <option value="default" ${status === 'default' ? 'selected' : ''}>default</option>
+                <option value="reserved" ${status === 'reserved' ? 'selected' : ''}>reserved</option>
+                <option value="bought" ${status === 'bought' ? 'selected' : ''}>bought</option>
+              </select>
+            </label>
+            <label class="owner-checkbox">
+              <input type="checkbox" name="is_public" ${isPublic ? 'checked' : ''}>
+              Veřejná položka
+            </label>
+            <label class="item-form-link">
+              Odkaz
+              <input type="url" name="link" value="${escapeHtml(it.link || '')}">
+            </label>
+            <label class="item-form-note">
+              Poznámka
+              <textarea name="note" rows="2">${escapeHtml(it.note || '')}</textarea>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Uložit položku</button>
+            <button type="button" class="btn-secondary owner-delete-item">Smazat</button>
+            <span class="owner-status" aria-live="polite"></span>
+          </div>
+        </form>
+      `;
+
+      const form = details.querySelector('.owner-item-form');
+      const statusEl = details.querySelector('.owner-status');
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+        statusEl.textContent = 'Ukládám položku…';
+
+        try {
+          const resp = await fetch(`${getApiBase()}/api/update-owner-item`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              token: ownerContext.token,
+              pin: ownerContext.pin,
+              id: it.id,
+              name: (formData.get('name') || '').toString().trim(),
+              price: (formData.get('price') || '').toString().trim(),
+              status: (formData.get('status') || 'default').toString(),
+              link: (formData.get('link') || '').toString().trim(),
+              note: (formData.get('note') || '').toString().trim(),
+              is_public: formData.has('is_public'),
+            }),
+          });
+          if (!resp.ok) await parseErrorResponse(resp);
+          statusEl.textContent = 'Položka uložena.';
+          loadList();
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = 'Chyba: ' + handleOwnerError(err, ownerContext.token);
+        }
+      });
+
+      details.querySelector('.owner-delete-item').addEventListener('click', async () => {
+        if (!window.confirm('Smazat položku?')) return;
+        statusEl.textContent = 'Mažu položku…';
+
+        try {
+          const resp = await fetch(`${getApiBase()}/api/delete-owner-item`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: ownerContext.token, pin: ownerContext.pin, id: it.id }),
+          });
+          if (!resp.ok) await parseErrorResponse(resp);
+          loadList();
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = 'Chyba: ' + handleOwnerError(err, ownerContext.token);
+        }
+      });
+
+      itemCard.appendChild(details);
+    }
 
     out.appendChild(itemCard);
   });
@@ -330,11 +571,17 @@ async function loadList() {
     `;
     out.appendChild(header);
     if (isOwnerMode && row.admin_token) {
-      out.appendChild(createAddItemForm(row.admin_token));
+      const ownerPin = getOwnerPin(row.admin_token);
+      out.appendChild(createOwnerPanel(row));
+      if (ownerPin) {
+        out.appendChild(createAddItemForm(row.admin_token));
+      }
     }
 
     const items = Array.isArray(row.items) ? row.items : [];
-    renderItems(out, items);
+    renderItems(out, items, isOwnerMode && row.admin_token
+      ? { token: row.admin_token, pin: getOwnerPin(row.admin_token), unlocked: Boolean(getOwnerPin(row.admin_token)) }
+      : null);
   } catch (err) {
     console.error(err);
     out.textContent = 'Chyba načítání: ' + err.message;
