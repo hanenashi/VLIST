@@ -39,26 +39,36 @@ function shortenUrl(urlStr) {
   }
 }
 
-function getCurrentShareUrl(token) {
+function getUrlWithParam(key, value) {
   const url = new URL(window.location.href);
-  url.searchParams.set('id', token);
+  url.search = '';
+  url.searchParams.set(key, value);
   return url.toString();
 }
 
-function getTokenFromInput(raw) {
+function getOpenTargetFromInput(raw) {
   const value = (raw || '').toString().trim();
-  if (!value) return '';
+  if (!value) return null;
 
   try {
     const url = new URL(value);
-    return (url.searchParams.get('id') || '').trim();
+    const id = (url.searchParams.get('id') || '').trim();
+    const slug = (url.searchParams.get('list') || '').trim();
+    if (id) return { key: 'id', value: id };
+    if (slug) return { key: 'list', value: slug };
+    return null;
   } catch {
     const queryStart = value.indexOf('?');
     if (queryStart !== -1) {
       const params = new URLSearchParams(value.slice(queryStart));
-      return (params.get('id') || '').trim();
+      const id = (params.get('id') || '').trim();
+      const slug = (params.get('list') || '').trim();
+      if (id) return { key: 'id', value: id };
+      if (slug) return { key: 'list', value: slug };
+      return null;
     }
-    return value;
+
+    return { key: 'id', value };
   }
 }
 
@@ -198,22 +208,75 @@ function createAddItemForm(token) {
   return card;
 }
 
+function renderItems(out, items) {
+  if (items.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'wishlist-card wishlist-item-card wishlist-item-card--default wishlist-empty';
+    empty.textContent = 'Zatím žádné položky.';
+    out.appendChild(empty);
+    return;
+  }
+
+  items.forEach(it => {
+    const name = escapeHtml(it.name);
+    const note = it.note ? escapeHtml(it.note) : '';
+    const price = formatPrice(it.price);
+    const link = it.link ? String(it.link) : '';
+    const status = it.status || 'default';
+
+    const linkHtml = link
+      ? `<a class="wishlist-item-link" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">
+           ${escapeHtml(shortenUrl(link))} ↗
+         </a>`
+      : '';
+
+    const priceHtml = price
+      ? `<span class="wishlist-item-price">${escapeHtml(price)}</span>`
+      : '';
+
+    const noteHtml = note
+      ? `<div class="wishlist-item-note">${note}</div>`
+      : '';
+
+    const itemCard = document.createElement('div');
+    itemCard.className = getItemCardClass(status);
+
+    itemCard.innerHTML = `
+      <div class="wishlist-item-main">
+        <span class="wishlist-item-name">${name}</span>
+        ${priceHtml}
+      </div>
+      <div class="wishlist-item-meta">
+        ${linkHtml}
+      </div>
+      ${noteHtml}
+    `;
+
+    out.appendChild(itemCard);
+  });
+}
+
 async function loadList() {
   const out = document.getElementById('output');
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
+  const slug = params.get('list');
 
-  if (!id) {
-    out.innerHTML = 'Zatím žádný list. Vytvoř si nový výše, nebo vlož do adresy parametr <code>?id=…</code>.';
+  if (!id && !slug) {
+    out.innerHTML = 'Zatím žádný list. Vytvoř si nový výše, nebo vlož veřejný odkaz nebo tajný token.';
     return;
   }
 
   out.textContent = 'Načítám list…';
 
   const apiBase = getApiBase();
+  const isOwnerMode = Boolean(id);
+  const endpoint = isOwnerMode
+    ? `${apiBase}/api/list?id=${encodeURIComponent(id)}`
+    : `${apiBase}/api/public-list?slug=${encodeURIComponent(slug)}`;
 
   try {
-    const resp = await fetch(`${apiBase}/api/list?id=${encodeURIComponent(id)}`);
+    const resp = await fetch(endpoint);
     if (!resp.ok) {
       if (resp.status === 404) {
         out.textContent = 'List nenalezen. Zkontroluj odkaz.';
@@ -237,74 +300,41 @@ async function loadList() {
     const descHtml = row.description
       ? `<p class="wishlist-description">${escapeHtml(row.description)}</p>`
       : '';
-    const shareUrl = getCurrentShareUrl(row.admin_token);
+    const publicUrl = getUrlWithParam('list', row.slug);
+    const ownerUrl = isOwnerMode && row.admin_token ? getUrlWithParam('id', row.admin_token) : '';
+    const ownerMetaHtml = isOwnerMode && row.admin_token
+      ? `
+        Owner token:
+        <button class="copy-token" type="button" data-copy="${escapeHtml(row.admin_token)}" title="Kopírovat owner token">
+          ${escapeHtml(row.admin_token)}
+        </button><br>
+        Owner odkaz:
+        <button class="copy-token copy-token--url" type="button" data-copy="${escapeHtml(ownerUrl)}" title="Kopírovat owner odkaz">
+          Kopírovat owner odkaz
+        </button><br>
+      `
+      : '';
 
     header.innerHTML = `
       <h2>${escapeHtml(row.title || '(bez názvu)')}</h2>
       ${descHtml}
       <div class="wishlist-meta">
-        ID (tajný token):
-        <button class="copy-token" type="button" data-copy="${escapeHtml(row.admin_token)}" title="Kopírovat token">
-          ${escapeHtml(row.admin_token)}
+        Veřejný odkaz:
+        <button class="copy-token copy-token--url" type="button" data-copy="${escapeHtml(publicUrl)}" title="Kopírovat veřejný odkaz">
+          Kopírovat veřejný odkaz
         </button><br>
-        Odkaz:
-        <button class="copy-token copy-token--url" type="button" data-copy="${escapeHtml(shareUrl)}" title="Kopírovat odkaz">
-          Kopírovat odkaz
-        </button><br>
+        ${ownerMetaHtml}
         Veřejný: ${row.is_public ? 'ano' : 'ne'}<br>
         Vytvořeno: ${escapeHtml(created)}
       </div>
     `;
     out.appendChild(header);
-    out.appendChild(createAddItemForm(row.admin_token));
-
-    const items = Array.isArray(row.items) ? row.items : [];
-
-    if (items.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'wishlist-card wishlist-item-card wishlist-item-card--default wishlist-empty';
-      empty.textContent = 'Zatím žádné položky.';
-      out.appendChild(empty);
-      return;
+    if (isOwnerMode && row.admin_token) {
+      out.appendChild(createAddItemForm(row.admin_token));
     }
 
-    items.forEach(it => {
-      const name = escapeHtml(it.name);
-      const note = it.note ? escapeHtml(it.note) : '';
-      const price = formatPrice(it.price);
-      const link = it.link ? String(it.link) : '';
-      const status = it.status || 'default';
-
-      const linkHtml = link
-        ? `<a class="wishlist-item-link" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">
-             ${escapeHtml(shortenUrl(link))} ↗
-           </a>`
-        : '';
-
-      const priceHtml = price
-        ? `<span class="wishlist-item-price">${escapeHtml(price)}</span>`
-        : '';
-
-      const noteHtml = note
-        ? `<div class="wishlist-item-note">${note}</div>`
-        : '';
-
-      const itemCard = document.createElement('div');
-      itemCard.className = getItemCardClass(status);
-
-      itemCard.innerHTML = `
-        <div class="wishlist-item-main">
-          <span class="wishlist-item-name">${name}</span>
-          ${priceHtml}
-        </div>
-        <div class="wishlist-item-meta">
-          ${linkHtml}
-        </div>
-        ${noteHtml}
-      `;
-
-      out.appendChild(itemCard);
-    });
+    const items = Array.isArray(row.items) ? row.items : [];
+    renderItems(out, items);
   } catch (err) {
     console.error(err);
     out.textContent = 'Chyba načítání: ' + err.message;
@@ -365,22 +395,31 @@ function setupCreateForm() {
       const basePath = window.location.origin +
         window.location.pathname.replace(/index\.html$/, '');
 
-      const shareUrl = `${basePath}?id=${encodeURIComponent(data.admin_token)}`;
+      const publicUrl = `${basePath}?list=${encodeURIComponent(data.slug)}`;
+      const ownerUrl = `${basePath}?id=${encodeURIComponent(data.admin_token)}`;
 
       resultBox.innerHTML = `
         <div class="wishlist-card">
           <p><strong>List vytvořen.</strong></p>
-          <p>Odkaz na tvůj višňový list (sdílej s rodinou):<br>
-            <a href="${shareUrl}" target="_blank" rel="noopener noreferrer">${shareUrl}</a>
+          <p>Veřejný odkaz pro rodinu:<br>
+            <a href="${publicUrl}" target="_blank" rel="noopener noreferrer">${publicUrl}</a>
           </p>
           <p>
-            <button class="copy-token copy-token--url" type="button" data-copy="${escapeHtml(shareUrl)}" title="Kopírovat odkaz">
-              Kopírovat odkaz
+            <button class="copy-token copy-token--url" type="button" data-copy="${escapeHtml(publicUrl)}" title="Kopírovat veřejný odkaz">
+              Kopírovat veřejný odkaz
+            </button>
+          </p>
+          <p>Owner odkaz pro úpravy:<br>
+            <a href="${ownerUrl}" target="_blank" rel="noopener noreferrer">${ownerUrl}</a>
+          </p>
+          <p>
+            <button class="copy-token copy-token--url" type="button" data-copy="${escapeHtml(ownerUrl)}" title="Kopírovat owner odkaz">
+              Kopírovat owner odkaz
             </button>
           </p>
           <p>
-            Token:
-            <button class="copy-token" type="button" data-copy="${escapeHtml(data.admin_token)}" title="Kopírovat token">
+            Owner token:
+            <button class="copy-token" type="button" data-copy="${escapeHtml(data.admin_token)}" title="Kopírovat owner token">
               ${escapeHtml(data.admin_token)}
             </button>
           </p>
@@ -413,20 +452,23 @@ function setupOpenForm() {
 
   const params = new URLSearchParams(window.location.search);
   const currentId = params.get('id');
+  const currentSlug = params.get('list');
   if (currentId) input.value = currentId;
+  if (!currentId && currentSlug) input.value = currentSlug;
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
 
-    const token = getTokenFromInput(input.value);
-    if (!token) {
-      message.textContent = 'Vlož token nebo celý odkaz s ?id=…';
+    const targetParam = getOpenTargetFromInput(input.value);
+    if (!targetParam) {
+      message.textContent = 'Vlož veřejný odkaz nebo tajný token.';
       input.focus();
       return;
     }
 
     const target = new URL(window.location.href);
-    target.searchParams.set('id', token);
+    target.search = '';
+    target.searchParams.set(targetParam.key, targetParam.value);
     window.location.href = target.toString();
   });
 }
