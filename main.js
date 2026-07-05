@@ -39,6 +39,71 @@ function shortenUrl(urlStr) {
   }
 }
 
+function getCurrentShareUrl(token) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('id', token);
+  return url.toString();
+}
+
+function getTokenFromInput(raw) {
+  const value = (raw || '').toString().trim();
+  if (!value) return '';
+
+  try {
+    const url = new URL(value);
+    return (url.searchParams.get('id') || '').trim();
+  } catch {
+    const queryStart = value.indexOf('?');
+    if (queryStart !== -1) {
+      const params = new URLSearchParams(value.slice(queryStart));
+      return (params.get('id') || '').trim();
+    }
+    return value;
+  }
+}
+
+async function copyText(text) {
+  if (!text) return false;
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Fall through to the textarea fallback.
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } finally {
+    textarea.remove();
+  }
+
+  return ok;
+}
+
+function showCopyState(button, ok) {
+  const original = button.dataset.label || button.textContent;
+  button.dataset.label = original;
+  button.textContent = ok ? 'Zkopírováno' : 'Nelze kopírovat';
+  button.classList.toggle('copy-token--done', ok);
+
+  window.setTimeout(() => {
+    button.textContent = original;
+    button.classList.remove('copy-token--done');
+  }, 1400);
+}
+
 function getItemCardClass(status) {
   switch ((status || 'default').toLowerCase()) {
     case 'reserved':
@@ -48,6 +113,89 @@ function getItemCardClass(status) {
     default:
       return 'wishlist-card wishlist-item-card wishlist-item-card--default';
   }
+}
+
+function createAddItemForm(token) {
+  const card = document.createElement('div');
+  card.className = 'wishlist-card add-item-card';
+  card.innerHTML = `
+    <h3>Přidat položku</h3>
+    <form class="add-item-form">
+      <div class="item-form-grid">
+        <label class="item-form-name">
+          Název
+          <input type="text" name="name" required>
+        </label>
+        <label>
+          Cena
+          <input type="text" name="price" inputmode="decimal" placeholder="volitelné">
+        </label>
+        <label class="item-form-link">
+          Odkaz
+          <input type="url" name="link" placeholder="https://…">
+        </label>
+        <label>
+          PIN
+          <input type="password" name="pin" required autocomplete="off">
+        </label>
+        <label class="item-form-note">
+          Poznámka
+          <textarea name="note" rows="2"></textarea>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Přidat</button>
+        <span class="add-item-status" aria-live="polite"></span>
+      </div>
+    </form>
+  `;
+
+  const form = card.querySelector('.add-item-form');
+  const status = card.querySelector('.add-item-status');
+  const apiBase = getApiBase();
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(form);
+    const name = (formData.get('name') || '').toString().trim();
+    const price = (formData.get('price') || '').toString().trim();
+    const link = (formData.get('link') || '').toString().trim();
+    const note = (formData.get('note') || '').toString().trim();
+    const pin = (formData.get('pin') || '').toString().trim();
+
+    if (!name || !pin) {
+      status.textContent = 'Vyplň název a PIN.';
+      return;
+    }
+
+    status.textContent = 'Ukládám položku…';
+
+    try {
+      const resp = await fetch(`${apiBase}/api/create-item`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, pin, name, price, link, note }),
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        if (resp.status === 403) {
+          throw new Error('špatný PIN');
+        }
+        throw new Error('HTTP ' + resp.status + ': ' + errText);
+      }
+
+      form.reset();
+      status.textContent = 'Položka přidána.';
+      loadList();
+    } catch (err) {
+      console.error(err);
+      status.textContent = 'Chyba: ' + err.message;
+    }
+  });
+
+  return card;
 }
 
 async function loadList() {
@@ -89,17 +237,26 @@ async function loadList() {
     const descHtml = row.description
       ? `<p class="wishlist-description">${escapeHtml(row.description)}</p>`
       : '';
+    const shareUrl = getCurrentShareUrl(row.admin_token);
 
     header.innerHTML = `
       <h2>${escapeHtml(row.title || '(bez názvu)')}</h2>
       ${descHtml}
       <div class="wishlist-meta">
-        ID (tajný token): <code>${escapeHtml(row.admin_token)}</code><br>
+        ID (tajný token):
+        <button class="copy-token" type="button" data-copy="${escapeHtml(row.admin_token)}" title="Kopírovat token">
+          ${escapeHtml(row.admin_token)}
+        </button><br>
+        Odkaz:
+        <button class="copy-token copy-token--url" type="button" data-copy="${escapeHtml(shareUrl)}" title="Kopírovat odkaz">
+          Kopírovat odkaz
+        </button><br>
         Veřejný: ${row.is_public ? 'ano' : 'ne'}<br>
         Vytvořeno: ${escapeHtml(created)}
       </div>
     `;
     out.appendChild(header);
+    out.appendChild(createAddItemForm(row.admin_token));
 
     const items = Array.isArray(row.items) ? row.items : [];
 
@@ -216,6 +373,17 @@ function setupCreateForm() {
           <p>Odkaz na tvůj višňový list (sdílej s rodinou):<br>
             <a href="${shareUrl}" target="_blank" rel="noopener noreferrer">${shareUrl}</a>
           </p>
+          <p>
+            <button class="copy-token copy-token--url" type="button" data-copy="${escapeHtml(shareUrl)}" title="Kopírovat odkaz">
+              Kopírovat odkaz
+            </button>
+          </p>
+          <p>
+            Token:
+            <button class="copy-token" type="button" data-copy="${escapeHtml(data.admin_token)}" title="Kopírovat token">
+              ${escapeHtml(data.admin_token)}
+            </button>
+          </p>
           <p><strong>PIN pro úpravy:</strong> ten, který jsi právě zadal. Nezapomeň si ho.</p>
         </div>
       `;
@@ -236,7 +404,46 @@ function setupCreateForm() {
   });
 }
 
+function setupOpenForm() {
+  const form = document.getElementById('open-form');
+  const input = document.getElementById('token-input');
+  const message = document.getElementById('open-message');
+
+  if (!form || !input || !message) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const currentId = params.get('id');
+  if (currentId) input.value = currentId;
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const token = getTokenFromInput(input.value);
+    if (!token) {
+      message.textContent = 'Vlož token nebo celý odkaz s ?id=…';
+      input.focus();
+      return;
+    }
+
+    const target = new URL(window.location.href);
+    target.searchParams.set('id', token);
+    window.location.href = target.toString();
+  });
+}
+
+function setupCopyButtons() {
+  document.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-copy]');
+    if (!button) return;
+
+    const ok = await copyText(button.dataset.copy || '');
+    showCopyState(button, ok);
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  setupOpenForm();
   setupCreateForm();
+  setupCopyButtons();
   loadList();
 });

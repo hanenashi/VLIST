@@ -24,6 +24,25 @@
       <!-- /DEBUG LINK -->
     </header>
 
+    <section class="open-section wishlist-card">
+      <form id="open-form" class="open-form">
+        <label for="token-input">Otevřít existující list</label>
+        <div class="open-row">
+          <input
+            id="token-input"
+            name="token"
+            type="text"
+            placeholder="Vlož tajný token nebo celý odkaz"
+            autocomplete="off"
+          >
+          <button type="submit" class="btn-primary">Otevřít</button>
+        </div>
+        <p id="open-message" class="form-hint" aria-live="polite">
+          Funguje token i celý odkaz s <code>?id=…</code>.
+        </p>
+      </form>
+    </section>
+
     <section class="create-section">
       <p class="create-tldr">
         1) Vytvoříš nový list s PINem.  

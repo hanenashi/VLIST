@@ -14,7 +14,7 @@ body {
 }
 
 .page-header {
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .page-header h1 {
@@ -57,6 +57,12 @@ body {
 .wishlist-card h2 {
   margin: 0 0 0.4rem;
   font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.wishlist-card h3 {
+  margin: 0 0 0.8rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -170,7 +176,37 @@ code {
 }
 
 
-/* ===== CREATE SECTION (NEW LIST) ===== */
+/* ===== OPEN / CREATE SECTIONS ===== */
+
+.open-section {
+  margin-bottom: 1.5rem;
+}
+
+.open-form label {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: #333;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.open-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.open-row input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.58rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
 
 .create-section {
   margin-bottom: 2rem;
@@ -209,7 +245,8 @@ code {
   background: #d5d5d5;
 }
 
-.create-form {
+.create-form,
+.add-item-card {
   margin-top: 1rem;
   padding: 1rem 1.2rem;
   background: #fff;
@@ -222,14 +259,17 @@ code {
   margin-bottom: 0.8rem;
 }
 
-.create-form label {
+.create-form label,
+.add-item-form label {
   display: block;
   font-size: 0.9rem;
   color: #333;
 }
 
 .create-form input[type="text"],
-.create-form textarea {
+.create-form textarea,
+.add-item-form input,
+.add-item-form textarea {
   width: 100%;
   margin-top: 0.2rem;
   padding: 0.4rem 0.5rem;
@@ -238,6 +278,23 @@ code {
   font-family: inherit;
   font-size: 0.9rem;
   box-sizing: border-box;
+}
+
+.item-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(7rem, 0.6fr);
+  gap: 0.8rem;
+}
+
+.item-form-link,
+.item-form-note {
+  grid-column: 1 / -1;
+}
+
+.add-item-status {
+  align-self: center;
+  color: #555;
+  font-size: 0.85rem;
 }
 
 .form-hint {
@@ -254,4 +311,55 @@ code {
 
 .create-result {
   margin-top: 1rem;
+}
+
+.copy-token {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  background: #eee;
+  color: #222;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.copy-token:hover,
+.copy-token:focus {
+  background: #e2e2e2;
+  border-color: #aaa;
+}
+
+.copy-token--done {
+  background: #d8ffd8;
+  border-color: #7bc47b;
+}
+
+.copy-token--url {
+  font-family: inherit;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 560px) {
+  .open-row {
+    grid-template-columns: 1fr;
+  }
+
+  .item-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+  }
 }
