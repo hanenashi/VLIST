@@ -1,4 +1,4 @@
-# Visnový List (Wishlist App)
+# Višňový List (Wishlist App)
 
 ### 🔗 Live Demo (GitHub Pages)
 **https://hanenashi.github.io/VLIST/**
