@@ -1,5 +1,6 @@
 // api/update-wishlist.js
 import { neon } from '@neondatabase/serverless';
+import { requireAdmin } from './_admin.js';
 
 function toBool(val) {
   if (typeof val === 'boolean') return val;
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Secret');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -31,6 +32,8 @@ export default async function handler(req, res) {
     res.status(500).json({ error: 'missing_database_url' });
     return;
   }
+
+  if (!requireAdmin(req, res)) return;
 
   let body;
   try {

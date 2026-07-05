@@ -27,6 +27,37 @@ const rawItemsBox = document.getElementById("raw-items-json");
 const statusEl = document.getElementById("status");
 
 let fullData = null; // entire /api/wishlist payload
+let adminSecret = sessionStorage.getItem("vlist_admin_secret") || "";
+
+function getAdminSecret() {
+  if (adminSecret) return adminSecret;
+
+  adminSecret = window.prompt("Admin API key") || "";
+  if (adminSecret) {
+    sessionStorage.setItem("vlist_admin_secret", adminSecret);
+  }
+  return adminSecret;
+}
+
+async function adminFetch(path, options = {}) {
+  const secret = getAdminSecret();
+  const headers = {
+    ...(options.headers || {}),
+    Authorization: `Bearer ${secret}`,
+  };
+
+  const resp = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (resp.status === 401) {
+    adminSecret = "";
+    sessionStorage.removeItem("vlist_admin_secret");
+  }
+
+  return resp;
+}
 
 // =========================================
 // Fetch everything
@@ -35,7 +66,7 @@ async function loadAll() {
   statusEl.textContent = "Načítám data…";
 
   try {
-    const resp = await fetch(`${API_BASE}/api/wishlist`);
+    const resp = await adminFetch("/api/wishlist");
     if (!resp.ok) throw new Error("HTTP " + resp.status);
 
     const data = await resp.json();
@@ -252,7 +283,7 @@ async function commitEdit(td, newVal) {
   const isItem = td.closest("#items-table") != null;
   const endpoint = isItem ? "/api/update-item" : "/api/update-wishlist";
 
-  await fetch(`${API_BASE}${endpoint}`, {
+  await adminFetch(endpoint, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ id: rowId, column: col, value: newVal })
@@ -280,7 +311,7 @@ document.addEventListener("change", async (e) => {
 
   statusEl.textContent = "Ukládám změny…";
 
-  await fetch(`${API_BASE}/api/update-item`, {
+  await adminFetch("/api/update-item", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ id: rowId, column: "status", value })
@@ -297,7 +328,7 @@ document.addEventListener("click", async (e) => {
     const id = e.target.dataset.delWishlist;
     if (!confirm("Smazat celý wishlist?")) return;
 
-    await fetch(`${API_BASE}/api/delete-wishlist`, {
+    await adminFetch("/api/delete-wishlist", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({ id })
@@ -310,7 +341,7 @@ document.addEventListener("click", async (e) => {
     const id = e.target.dataset.delItem;
     if (!confirm("Smazat položku?")) return;
 
-    await fetch(`${API_BASE}/api/delete-item`, {
+    await adminFetch("/api/delete-item", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({ id })

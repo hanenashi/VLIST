@@ -1,11 +1,12 @@
 // api/wishlist.js – wishlists + items (no secrets)
 import { neon } from '@neondatabase/serverless';
+import { requireAdmin } from './_admin.js';
 
 export default async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Secret');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -24,6 +25,8 @@ export default async function handler(req, res) {
     });
     return;
   }
+
+  if (!requireAdmin(req, res)) return;
 
   try {
     const sql = neon(process.env.DATABASE_URL);
