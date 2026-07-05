@@ -1,3 +1,20 @@
+const DEBUG_ALLOWED_HOSTS = new Set([
+  "hanenashi.github.io",
+  "localhost",
+  "127.0.0.1",
+  "::1",
+]);
+
+if (!DEBUG_ALLOWED_HOSTS.has(window.location.hostname)) {
+  document.body.innerHTML = `
+    <main class="page">
+      <h1>Debug panel vypnutý</h1>
+      <p class="subtitle">Debug panel je dostupný jen na GitHub Pages nebo lokálně.</p>
+    </main>
+  `;
+  throw new Error("Debug panel disabled on this host");
+}
+
 const API_BASE = window.location.hostname.endsWith("vercel.app")
   ? ""
   : "https://vlist-kappa.vercel.app";
