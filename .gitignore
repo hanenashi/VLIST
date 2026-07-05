@@ -29,8 +29,3 @@ desktop.ini
 # Logs / temp
 *.log
 *.tmp
-
-# Local secrets
-.env
-.env.*
-!.env.example
